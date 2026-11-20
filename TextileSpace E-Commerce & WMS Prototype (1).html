@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TextileSpace — Ekosistem Ritel Tekstil Digital & WMS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f4f7f4',
+              100: '#e4ede4',
+              500: '#3c6e52',
+              600: '#2d563f',
+              700: '#244432',
+              900: '#14261c'
+            },
+            accent: {
+              500: '#c87d32',
+              600: '#a86422'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Custom scrollbar & subtle visual polish */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    .swatch-pattern {
+      background-image: radial-gradient(rgba(255,255,255,0.14) 1px, transparent 0);
+      background-size: 8px 8px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-brand-500 selection:text-white">
+  <div id="app" class="min-h-screen flex flex-col"></div>
+
+  <script>
+    /**
+     * TextileSpace Interactive Prototype
+     * Self-contained vanilla JS application simulating:
+     * 1. HEX Color Matching & RGB/Similarity Engine + Sample Photo Eyedropper
+     * 2. Dye-Lot Batch Indexing & Smart Shelf Locator + Dye-Lot Mixing Warning
+     * 3. Zero-Waste Scrap & Upcycling Catalog (< 1.5m remnants)
+     * 4. Hardware-Integrated Cutting & POS Workstation Simulator
+     */
+
+    // ==========================================
+    // 1. INITIAL STATE & SAMPLE FABRIC INVENTORY
+    // ==========================================
+    const INITIAL_ROLLS = [
+      {
+        id: 'ROLL-001',
+        sku: 'TYB-SG-01',
+        name: 'Katun Toyobo Premium',
+        category: 'Katun & Woven',
+        hex: '#8F9E8B',
+        colorName: 'Sage Green',
+        dyeLot: 'LOT-2026-A01',
+        shelf: 'Rak A-01-B',
+        stockMeters: 24.5,
+        pricePerMeter: 42000,
+        accessibilityNote: 'Nuansa hijau keabu-abuan lembut (RGB: 143, 158, 139)'
+      },
+      {
+        id: 'ROLL-002',
+        sku: 'TYB-SG-02',
+        name: 'Katun Toyobo Premium',
+        category: 'Katun & Woven',
+        hex: '#8B9B87',
+        colorName: 'Sage Mist (Batch Berbeda)',
+        dyeLot: 'LOT-2026-A09',
+        shelf: 'Rak A-02-A',
+        stockMeters: 18.0,
+        pricePerMeter: 42000,
+        accessibilityNote: 'Sangat mirip Sage Green namun beda tangki celup (RGB: 139, 155, 135)'
+      },
+      {
+        id: 'ROLL-003',
+        sku: 'LNS-ND-03',
+        name: 'Linen Slub Natural',
+        category: 'Linen & Tekstur',
+        hex: '#C5B39A',
+        colorName: 'Warm Sand / Oat',
+        dyeLot: 'LOT-2026-B04',
+        shelf: 'Rak B-03-A',
+        stockMeters: 15.2,
+        pricePerMeter: 56000,
+        accessibilityNote: 'Krem hangat berserat alami (RGB: 197, 179, 154)'
+      },
+      {
+        id: 'ROLL-004',
+        sku: 'STV-MR-04',
+        name: 'Satin Velvet Silk',
+        category: 'Satin & Gaun',
+        hex: '#7A232E',
+        colorName: 'Burgundy Wine',
+        dyeLot: 'LOT-2026-C02',
+        shelf: 'Rak C-01-D',
+        stockMeters: 12.8,
+        pricePerMeter: 48000,
+        accessibilityNote: 'Merah marun pekat berkilau halus (RGB: 122, 35, 46)'
+      },
+      {
+        id: 'ROLL-005',
+        sku: 'KRO-AB-05',
+        name: 'Tenun Abutai Motif (Karo Inspired)',
+        category: 'Etnik & Tenun',
+        hex: '#1E242B',
+        colorName: 'Midnight Charcoal',
+        dyeLot: 'LOT-2026-K01',
+        shelf: 'Rak D-04-A',
+        stockMeters: 9.4,
+        pricePerMeter: 85000,
+        accessibilityNote: 'Hitam arang pekat berkarakter tenun (RGB: 30, 36, 43)'
+      },
+      {
+        id: 'ROLL-006',
+        sku: 'KRO-EM-06',
+        name: 'Tenun Uis/Abutai Gold Accent',
+        category: 'Etnik & Tenun',
+        hex: '#C87D32',
+        colorName: 'Amber Gold',
+        dyeLot: 'LOT-2026-K02',
+        shelf: 'Rak D-04-C',
+        stockMeters: 6.5,
+        pricePerMeter: 92000,
+        accessibilityNote: 'Emas tembaga hangat (RGB: 200, 125, 50)'
+      },
+      {
+        id: 'ROLL-007',
+        sku: 'CVC-NV-07',
+        name: 'Katun Poplin Twill',
+        category: 'Katun & Woven',
+        hex: '#2B4C7E',
+        colorName: 'Classic Navy',
+        dyeLot: 'LOT-2026-N07',
+        shelf: 'Rak A-05-A',
+        stockMeters: 31.0,
+        pricePerMeter: 38000,
+        accessibilityNote: 'Biru dongker standar kemeja/seragam (RGB: 43, 76, 126)'
+      },
+      {
+        id: 'ROLL-008',
+        sku: 'CRN-TL-08',
+        name: 'Ceruty Babydoll Grade A',
+        category: 'Hijab & Flowy',
+        hex: '#4E8D7C',
+        colorName: 'Teal Eucalyptus',
+        dyeLot: 'LOT-2026-E11',
+        shelf: 'Rak E-02-B',
+        stockMeters: 19.6,
+        pricePerMeter: 34000,
+        accessibilityNote: 'Hijau kebiruan segar (RGB: 78, 141, 124)'
+      }
+    ];
+
+    const INITIAL_SCRAPS = [
+      {
+        id: 'SCRAP-101',
+        sourceRollId: 'ROLL-001',
+        name: 'Potongan Sisa Katun Toyobo',
+        hex: '#8F9E8B',
+        colorName: 'Sage Green',
+        dyeLot: 'LOT-2026-A01',
+        shelf: 'Bin Scrap S-01',
+        lengthMeters: 1.2,
+        priceTotal: 32000,
+        craftIdea: 'Cocok untuk pouch, scrunchies, atau patch saku baju'
+      },
+      {
+        id: 'SCRAP-102',
+        sourceRollId: 'ROLL-004',
+        name: 'Potongan Sisa Satin Velvet',
+        hex: '#7A232E',
+        colorName: 'Burgundy Wine',
+        dyeLot: 'LOT-2026-C02',
+        shelf: 'Bin Scrap S-02',
+        lengthMeters: 0.85,
+        priceTotal: 25000,
+        craftIdea: 'Ideal untuk pita rambut, aksen kerah, atau bungkus kado kain'
+      },
+      {
+        id: 'SCRAP-103',
+        sourceRollId: 'ROLL-003',
+        name: 'Potongan Sisa Linen Slub',
+        hex: '#C5B39A',
+        colorName: 'Warm Sand / Oat',
+        dyeLot: 'LOT-2026-B04',
+        shelf: 'Bin Scrap S-03',
+        lengthMeters: 1.4,
+        priceTotal: 45000,
+        craftIdea: 'Pas untuk coaster gelas, totebag mini, atau sulaman tangan'
+      }
+    ];
+
+    const SAMPLE_SWATCHES = [
+      { label: 'Sampel Sage', hex: '#8F9E8B' },
+      { label: 'Sampel Marun', hex: '#7A232E' },
+      { label: 'Sampel Linen', hex: '#C5B39A' },
+      { label: 'Sampel Navy', hex: '#2B4C7E' },
+      { label: 'Sampel Emas', hex: '#C87D32' }
+    ];
+
+    const state = {
+      activeTab: 'catalog', // 'catalog' | 'scraps'
+      targetHex: '#8F9E8B',
+      hexInputText: '#8F9E8B',
+      similarityFilter: false,
+      searchQuery: '',
+      categoryFilter: 'ALL',
+      rolls: JSON.parse(JSON.stringify(INITIAL_ROLLS)),
+      scraps: JSON.parse(JSON.stringify(INITIAL_SCRAPS)),
+      cart: [], // { type: 'roll' | 'scrap', itemId, name, hex, dyeLot, shelf, meters, unitPrice, subtotal }
+      transactions: [],
+      workstationOpen: false,
+      selectedRollForCut: 'ROLL-001',
+      cutMetersInput: 2.0,
+      autoScrapThreshold: 1.5,
+      uploadedPhotoUrl: null,
+      toastMessage: null,
+      toastType: 'info' // 'info' | 'warn' | 'success'
+    };
+
+    // ==========================================
+    // 2. COLOR & MATCHING UTILITIES
+    // ==========================================
+    function normalizeHex(input) {
+      if (!input) return null;
+      let clean = input.trim().replace(/^#/, '');
+      if (/^[0-9A-Fa-f]{3}$/.test(clean)) {
+        clean = clean.split('').map((c) => c + c).join('');
+      }
+      if (/^[0-9A-Fa-f]{6}$/.test(clean)) {
+        return '#' + clean.toUpperCase();
+      }
+      return null;
+    }
+
+    function hexToRgb(hex) {
+      const norm = normalizeHex(hex) || '#000000';
+      const num = parseInt(norm.slice(1), 16);
+      return {
+        r: (num >> 16) & 255,
+        g: (num >> 8) & 255,
+        b: num & 255
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      const clamp = (n) => Math.max(0, Math.min(255, Math.round(n)));
+      return (
+        '#' +
+        [clamp(r), clamp(g), clamp(b)]
+          .map((x) => x.toString(16).padStart(2, '0').toUpperCase())
+          .join('')
+      );
+    }
+
+    // Euclidean distance in RGB space (max ~ 441.67) -> converted to similarity %
+    function calculateColorMatch(hexA, hexB) {
+      const a = hexToRgb(hexA);
+      const b = hexToRgb(hexB);
+      const dr = a.r - b.r;
+      const dg = a.g - b.g;
+      const db = a.b - b.b;
+      const distance = Math.sqrt(dr * dr + dg * dg + db * db);
+      const maxDist = Math.sqrt(255 * 255 * 3);
+      const similarity = Math.max(0, Math.min(100, ((1 - distance / maxDist) * 100)));
+      return {
+        distance: Number(distance.toFixed(1)),
+        similarity: Number(similarity.toFixed(1)),
+        isExact: distance === 0
+      };
+    }
+
+    function getContrastTextColor(hex) {
+      const { r, g, b } = hexToRgb(hex);
+      // Relative luminance
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      return luminance > 0.55 ? '#0f172a' : '#ffffff';
+    }
+
+    function formatRupiah(amount) {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0
+      }).format(amount);
+    }
+
+    function showToast(message, type = 'info') {
+      state.toastMessage = message;
+      state.toastType = type;
+      render();
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => {
+        state.toastMessage = null;
+        render();
+      }, 4200);
+    }
+
+    // ==========================================
+    // 3. DYE-LOT & CART / POS LOGIC
+    // ==========================================
+    function getCartDyeLotConflicts() {
+      // Group roll items by fabric name to see if multiple dye lots of same fabric are mixed
+      const byFabric = {};
+      state.cart
+        .filter((c) => c.type === 'roll')
+        .forEach((item) => {
+          const baseName = item.name.trim().toLowerCase();
+          if (!byFabric[baseName]) byFabric[baseName] = new Set();
+          byFabric[baseName].add(item.dyeLot);
+        });
+
+      const warnings = [];
+      Object.entries(byFabric).forEach(([fabricKey, lotsSet]) => {
+        if (lotsSet.size > 1) {
+          warnings.push({
+            fabric: fabricKey,
+            lots: Array.from(lotsSet)
+          });
+        }
+      });
+      return warnings;
+    }
+
+    function addRollToCart(rollId, meters) {
+      const roll = state.rolls.find((r) => r.id === rollId);
+      if (!roll) return;
+      const qty = parseFloat(meters);
+      if (isNaN(qty) || qty <= 0) {
+        showToast('Masukkan panjang kain (meter) yang valid.', 'warn');
+        return;
+      }
+      if (qty > roll.stockMeters) {
+        showToast(`Stok ${roll.name} (${roll.dyeLot}) hanya tersisa ${roll.stockMeters.toFixed(2)} m.`, 'warn');
+        return;
+      }
+
+      const existingIdx = state.cart.findIndex(
+        (c) => c.type === 'roll' && c.itemId === roll.id
+      );
+      if (existingIdx >= 0) {
+        const newTotalMeters = Number((state.cart[existingIdx].meters + qty).toFixed(2));
+        if (newTotalMeters > roll.stockMeters) {
+          showToast(`Total di keranjang (${newTotalMeters}m) melebihi stok ${roll.stockMeters.toFixed(2)}m.`, 'warn');
+          return;
+        }
+        state.cart[existingIdx].meters = newTotalMeters;
+        state.cart[existingIdx].subtotal = Math.round(newTotalMeters * roll.pricePerMeter);
+      } else {
+        state.cart.push({
+          type: 'roll',
+          itemId: roll.id,
+          name: roll.name,
+          hex: roll.hex,
+          dyeLot: roll.dyeLot,
+          shelf: roll.shelf,
+          meters: Number(qty.toFixed(2)),
+          unitPrice: roll.pricePerMeter,
+          subtotal: Math.round(qty * roll.pricePerMeter)
+        });
+      }
+
+      const conflicts = getCartDyeLotConflicts();
+      if (conflicts.length > 0) {
+        showToast(
+          `Peringatan Dye-Lot: Ada campuran batch (${conflicts[0].lots.join(' & ')}) untuk kain yang sama!`,
+          'warn'
+        );
+      } else {
+        showToast(`Ditambahkan ${qty}m ${roll.name} (${roll.dyeLot}) ke stasiun kasir.`, 'success');
+      }
+      render();
+    }
+
+    function addScrapToCart(scrapId) {
+      const scrap = state.scraps.find((s) => s.id === scrapId);
+      if (!scrap) return;
+      if (state.cart.some((c) => c.type === 'scrap' && c.itemId === scrap.id)) {
+        showToast('Potongan kain upcycling ini sudah ada di keranjang.', 'info');
+        return;
+      }
+      state.cart.push({
+        type: 'scrap',
+        itemId: scrap.id,
+        name: scrap.name,
+        hex: scrap.hex,
+        dyeLot: scrap.dyeLot,
+        shelf: scrap.shelf,
+        meters: scrap.lengthMeters,
+        unitPrice: scrap.priceTotal,
+        subtotal: scrap.priceTotal
+      });
+      showToast(`Potongan upcycling ${scrap.name} (${scrap.lengthMeters}m) masuk ke keranjang.`, 'success');
+      render();
+    }
+
+    function removeFromCart(index) {
+      state.cart.splice(index, 1);
+      render();
+    }
+
+    function executeCuttingAndCheckout() {
+      if (state.cart.length === 0) {
+        showToast('Keranjang workstation masih kosong.', 'warn');
+        return;
+      }
+
+      let generatedScrapsCount = 0;
+      const totalAmount = state.cart.reduce((sum, item) => sum + item.subtotal, 0);
+
+      state.cart.forEach((cartItem) => {
+        if (cartItem.type === 'roll') {
+          const roll = state.rolls.find((r) => r.id === cartItem.itemId);
+          if (roll) {
+            const remaining = Number((roll.stockMeters - cartItem.meters).toFixed(2));
+            roll.stockMeters = Math.max(0, remaining);
+
+            // Auto-generate Zero-Waste Scrap if remaining stock is > 0 and below threshold (e.g., < 1.5m)
+            if (roll.stockMeters > 0 && roll.stockMeters < state.autoScrapThreshold) {
+              const scrapMeters = roll.stockMeters;
+              const scrapPrice = Math.round(scrapMeters * roll.pricePerMeter * 0.65); // 35% discount for upcycling
+              state.scraps.unshift({
+                id: 'SCRAP-' + Math.floor(200 + Math.random() * 799),
+                sourceRollId: roll.id,
+                name: `Sisa Potongan ${roll.name}`,
+                hex: roll.hex,
+                colorName: roll.colorName,
+                dyeLot: roll.dyeLot,
+                shelf: 'Bin Scrap Auto-WMS',
+                lengthMeters: scrapMeters,
+                priceTotal: scrapPrice,
+                craftIdea: 'Sisa rol otomatis dari meja potong untuk proyek kerajinan / upcycling'
+              });
+              roll.stockMeters = 0;
+              generatedScrapsCount++;
+            }
+          }
+        } else if (cartItem.type === 'scrap') {
+          state.scraps = state.scraps.filter((s) => s.id !== cartItem.itemId);
+        }
+      });
+
+      const txRecord = {
+        id: 'TRX-' + Date.now().toString().slice(-6),
+        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        itemsCount: state.cart.length,
+        total: totalAmount,
+        dyeLotWarnings: getCartDyeLotConflicts().length
+      };
+
+      state.transactions.unshift(txRecord);
+      state.cart = [];
+
+      const scrapMsg =
+        generatedScrapsCount > 0
+          ? ` ${generatedScrapsCount} sisa rol (<${state.autoScrapThreshold}m) otomatis masuk ke Katalog Zero-Waste!`
+          : '';
+      showToast(`Transaksi ${txRecord.id} (${formatRupiah(totalAmount)}) berhasil diproses.${scrapMsg}`, 'success');
+      render();
+    }
+
+    function resetDemoData() {
+      state.rolls = JSON.parse(JSON.stringify(INITIAL_ROLLS));
+      state.scraps = JSON.parse(JSON.stringify(INITIAL_SCRAPS));
+      state.cart = [];
+      state.transactions = [];
+      state.targetHex = '#8F9E8B';
+      state.hexInputText = '#8F9E8B';
+      state.similarityFilter = false;
+      state.searchQuery = '';
+      state.categoryFilter = 'ALL';
+      showToast('Data simulasi stok & transaksi direset ke kondisi awal.', 'info');
+      render();
+    }
+
+    // ==========================================
+    // 4. EVENT HANDLERS & PHOTO EYEDROPPER
+    // ==========================================
+    function handlePhotoUploadAndPick(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        state.uploadedPhotoUrl = e.target.result;
+        render();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleCanvasSampleClick(event) {
+      const imgEl = document.getElementById('samplePhotoPreview');
+      if (!imgEl || !imgEl.complete) return;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = imgEl.naturalWidth || imgEl.width;
+      canvas.height = imgEl.naturalHeight || imgEl.height;
+      ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+
+      const rect = imgEl.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = Math.floor((event.clientX - rect.left) * scaleX);
+      const y = Math.floor((event.clientY - rect.top) * scaleY);
+
+      try {
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        const pickedHex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+        state.targetHex = pickedHex;
+        state.hexInputText = pickedHex;
+        showToast(`Warna sampel terdeteksi dari foto: ${pickedHex}`, 'success');
+        render();
+      } catch (err) {
+        showToast('Tidak dapat membaca piksel gambar ini.', 'warn');
+      }
+    }
+
+    function attachEvents() {
+      // Tabs
+      document.querySelectorAll('[data-tab]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.activeTab = btn.getAttribute('data-tab');
+          render();
+        });
+      });
+
+      // Toggle Workstation Drawer
+      document.querySelectorAll('[data-toggle-workstation]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.workstationOpen = !state.workstationOpen;
+          render();
+        });
+      });
+
+      // Reset Demo
+      const resetBtn = document.getElementById('resetDemoBtn');
+      if (resetBtn) resetBtn.addEventListener('click', resetDemoData);
+
+      // Color Picker input
+      const colorPicker = document.getElementById('colorPickerInput');
+      if (colorPicker) {
+        colorPicker.addEventListener('input', (e) => {
+          const hex = normalizeHex(e.target.value);
+          if (hex) {
+            state.targetHex = hex;
+            state.hexInputText = hex;
+            render();
+          }
+        });
+      }
+
+      // HEX Text input
+      const hexTextInput = document.getElementById('hexTextInput');
+      if (hexTextInput) {
+        hexTextInput.addEventListener('input', (e) => {
+          state.hexInputText = e.target.value;
+          const norm = normalizeHex(e.target.value);
+          if (norm) {
+            state.targetHex = norm;
+            render();
+            // Keep focus & cursor at end
+            const nextInput = document.getElementById('hexTextInput');
+            if (nextInput) {
+              nextInput.focus();
+              const len = nextInput.value.length;
+              nextInput.setSelectionRange(len, len);
+            }
+          }
+        });
+      }
+
+      // Sample Swatch buttons
+      document.querySelectorAll('[data-sample-hex]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const h = normalizeHex(btn.getAttribute('data-sample-hex'));
+          if (h) {
+            state.targetHex = h;
+            state.hexInputText = h;
+            render();
+          }
+        });
+      });
+
+      // Photo upload input
+      const photoInput = document.getElementById('samplePhotoInput');
+      if (photoInput) {
+        photoInput.addEventListener('change', handlePhotoUploadAndPick);
+      }
+
+      const photoPreview = document.getElementById('samplePhotoPreview');
+      if (photoPreview) {
+        photoPreview.addEventListener('click', handleCanvasSampleClick);
+      }
+
+      const clearPhotoBtn = document.getElementById('clearPhotoBtn');
+      if (clearPhotoBtn) {
+        clearPhotoBtn.addEventListener('click', () => {
+          state.uploadedPhotoUrl = null;
+          render();
+        });
+      }
+
+      // Similarity filter toggle
+      const simFilterBtn = document.getElementById('similarityFilterBtn');
+      if (simFilterBtn) {
+        simFilterBtn.addEventListener('click', () => {
+          state.similarityFilter = !state.similarityFilter;
+          render();
+        });
+      }
+
+      // Search & Category filter
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          state.searchQuery = e.target.value;
+          render();
+          const el = document.getElementById('searchInput');
+          if (el) {
+            el.focus();
+            el.setSelectionRange(el.value.length, el.value.length);
+          }
+        });
+      }
+
+      const categorySelect = document.getElementById('categorySelect');
+      if (categorySelect) {
+        categorySelect.addEventListener('change', (e) => {
+          state.categoryFilter = e.target.value;
+          render();
+        });
+      }
+
+      // Add Roll Quick Meter Buttons
+      document.querySelectorAll('[data-add-roll]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const rollId = btn.getAttribute('data-add-roll');
+          const inputEl = document.getElementById(`meters-${rollId}`);
+          const meters = inputEl ? parseFloat(inputEl.value) : 1.0;
+          addRollToCart(rollId, meters);
+          state.workstationOpen = true;
+          render();
+        });
+      });
+
+      // Set Target HEX from Roll
+      document.querySelectorAll('[data-use-hex]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const hex = normalizeHex(btn.getAttribute('data-use-hex'));
+          if (hex) {
+            state.targetHex = hex;
+            state.hexInputText = hex;
+            showToast(`Acuan HEX disetel ke ${hex} untuk mencocokkan warna serupa.`, 'info');
+            render();
+          }
+        });
+      });
+
+      // Add Scrap to Cart
+      document.querySelectorAll('[data-add-scrap]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const scrapId = btn.getAttribute('data-add-scrap');
+          addScrapToCart(scrapId);
+          state.workstationOpen = true;
+          render();
+        });
+      });
+
+      // Workstation Quick Cut Form
+      const wsRollSelect = document.getElementById('wsRollSelect');
+      if (wsRollSelect) {
+        wsRollSelect.addEventListener('change', (e) => {
+          state.selectedRollForCut = e.target.value;
+          render();
+        });
+      }
+
+      const wsMetersInput = document.getElementById('wsMetersInput');
+      if (wsMetersInput) {
+        wsMetersInput.addEventListener('input', (e) => {
+          state.cutMetersInput = parseFloat(e.target.value) || 0;
+          render();
+          const el = document.getElementById('wsMetersInput');
+          if (el) el.focus();
+        });
+      }
+
+      const wsThresholdSelect = document.getElementById('wsThresholdSelect');
+      if (wsThresholdSelect) {
+        wsThresholdSelect.addEventListener('change', (e) => {
+          state.autoScrapThreshold = parseFloat(e.target.value);
+          render();
+        });
+      }
+
+      const wsAddCutBtn = document.getElementById('wsAddCutBtn');
+      if (wsAddCutBtn) {
+        wsAddCutBtn.addEventListener('click', () => {
+          addRollToCart(state.selectedRollForCut, state.cutMetersInput);
+        });
+      }
+
+      // Remove cart item
+      document.querySelectorAll('[data-remove-cart]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-remove-cart'), 10);
+          removeFromCart(idx);
+        });
+      });
+
+      // Checkout button
+      const checkoutBtn = document.getElementById('checkoutBtn');
+      if (checkoutBtn) {
+        checkoutBtn.addEventListener('click', executeCuttingAndCheckout);
+      }
+    }
+
+    // ==========================================
+    // 5. RENDERING UI COMPONENTS
+    // ==========================================
+    function renderHeader() {
+      const cartCount = state.cart.length;
+      const dyeWarnings = getCartDyeLotConflicts();
+
+      return `
+        <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+            <!-- Brand -->
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-sm font-bold text-lg">
+                TS
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-slate-900 tracking-tight text-base sm:text-lg">TextileSpace</span>
+                  <span class="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-700">
+                    Digital Retail & WMS
+                  </span>
+                </div>
+                <p class="text-xs text-slate-500 hidden sm:block">HEX Color Matching • Dye-Lot Indexing • Zero-Waste</p>
+              </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <nav class="flex items-center bg-slate-100 p-1 rounded-xl">
+              <button data-tab="catalog" class="px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition ${
+                state.activeTab === 'catalog'
+                  ? 'bg-white text-brand-700 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }">
+                Katalog & Color Match
+              </button>
+              <button data-tab="scraps" class="px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 ${
+                state.activeTab === 'scraps'
+                  ? 'bg-white text-brand-700 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }">
+                <span>Zero-Waste Scrap</span>
+                <span class="px-1.5 py-0.2 rounded-full text-[11px] bg-amber-100 text-amber-800 font-bold">
+                  ${state.scraps.length}
+                </span>
+              </button>
+            </nav>
+
+            <!-- Workstation & Reset Actions -->
+            <div class="flex items-center gap-2">
+              <button id="resetDemoBtn" title="Reset Data Simulasi" class="hidden sm:inline-flex items-center px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 transition">
+                Reset Demo
+              </button>
+              <button data-toggle-workstation class="relative inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <span>Meja Potong & POS</span>
+                ${
+                  cartCount > 0
+                    ? `<span class="px-2 py-0.5 text-xs rounded-full bg-amber-400 text-slate-950 font-extrabold">${cartCount}</span>`
+                    : ''
+                }
+                ${
+                  dyeWarnings.length > 0
+                    ? `<span class="w-2.5 h-2.5 rounded-full bg-red-400 animate-ping" title="Peringatan Dye-Lot"></span>`
+                    : ''
+                }
+              </button>
+            </div>
+          </div>
+        </header>
+      `;
+    }
+
+    function renderHexMatcherPanel() {
+      const rgb = hexToRgb(state.targetHex);
+      const textCol = getContrastTextColor(state.targetHex);
+
+      return `
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-600">Modul 1 • Pencocokan Warna Digital</span>
+              <h2 class="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
+                HEX Color Reader & Pencari Warna Kain
+              </h2>
+              <p class="text-sm text-slate-600 mt-1">
+                Pilih warna sampel, masukkan kode <code class="px-1.5 py-0.5 bg-slate-100 rounded text-slate-800 font-semibold">#RRGGBB</code>, atau klik area kain pada foto sampel untuk mencari kecocokan warna & skor kemiripan secara inklusif.
+              </p>
+            </div>
+            <div class="flex items-center gap-2 text-xs bg-brand-50 text-brand-800 px-3 py-2 rounded-xl border border-brand-200">
+              <svg class="w-4 h-4 shrink-0 text-brand-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Aksesibilitas Inklusif: Membantu identifikasi warna akurat tanpa bergantung pada perkiraan mata/lampu.</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <!-- Swatch & RGB Breakdown -->
+            <div class="lg:col-span-5 space-y-4">
+              <div class="rounded-2xl p-4 border border-slate-200 swatch-pattern flex items-center gap-4" style="background-color: ${state.targetHex}; color: ${textCol};">
+                <div class="w-16 h-16 rounded-xl border-2 border-white/60 shadow-inner shrink-0" style="background-color: ${state.targetHex};"></div>
+                <div class="min-w-0 flex-1">
+                  <div class="text-xs uppercase tracking-wider opacity-80 font-semibold">Target Sampel Aktif</div>
+                  <div class="text-2xl font-extrabold tracking-wide font-mono">${state.targetHex}</div>
+                  <div class="text-xs font-mono mt-1 opacity-90">
+                    RGB(${rgb.r}, ${rgb.g}, ${rgb.b})
+                  </div>
+                </div>
+              </div>
+
+              <!-- RGB Bars -->
+              <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2.5 text-xs">
+                <div>
+                  <div class="flex justify-between font-semibold text-slate-700 mb-1">
+                    <span>Red (Merah)</span>
+                    <span class="font-mono">${rgb.r} / 255 (${rgb.r.toString(16).padStart(2, '0').toUpperCase()})</span>
+                  </div>
+                  <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-rose-600 rounded-full" style="width: ${(rgb.r / 255) * 100}%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between font-semibold text-slate-700 mb-1">
+                    <span>Green (Hijau)</span>
+                    <span class="font-mono">${rgb.g} / 255 (${rgb.g.toString(16).padStart(2, '0').toUpperCase()})</span>
+                  </div>
+                  <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-emerald-600 rounded-full" style="width: ${(rgb.g / 255) * 100}%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between font-semibold text-slate-700 mb-1">
+                    <span>Blue (Biru)</span>
+                    <span class="font-mono">${rgb.b} / 255 (${rgb.b.toString(16).padStart(2, '0').toUpperCase()})</span>
+                  </div>
+                  <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-600 rounded-full" style="width: ${(rgb.b / 255) * 100}%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Picker, HEX Input, Quick Swatches & Photo Eyedropper -->
+            <div class="lg:col-span-7 space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label for="colorPickerInput" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Color Picker Digital
+                  </label>
+                  <div class="flex items-center gap-2.5 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2">
+                    <input
+                      id="colorPickerInput"
+                      type="color"
+                      value="${state.targetHex}"
+                      class="w-9 h-9 rounded-lg cursor-pointer border-0 bg-transparent p-0"
+                    />
+                    <span class="text-xs text-slate-600">Geser untuk memilih warna acuan</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label for="hexTextInput" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Input Kode HEX (#RRGGBB)
+                  </label>
+                  <input
+                    id="hexTextInput"
+                    type="text"
+                    maxlength="7"
+                    value="${state.hexInputText}"
+                    placeholder="#8F9E8B"
+                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              </div>
+
+              <!-- Quick Sample Swatches -->
+              <div>
+                <div class="text-xs font-semibold text-slate-700 mb-2">Simulasi Swatch Sampel Cepat:</div>
+                <div class="flex flex-wrap gap-2">
+                  ${SAMPLE_SWATCHES.map(
+                    (sw) => `
+                    <button
+                      type="button"
+                      data-sample-hex="${sw.hex}"
+                      class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
+                        state.targetHex === sw.hex
+                          ? 'border-brand-600 bg-brand-50 text-brand-800 ring-1 ring-brand-600'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }"
+                    >
+                      <span class="w-3.5 h-3.5 rounded-full border border-black/15" style="background-color: ${sw.hex};"></span>
+                      <span>${sw.label}</span>
+                      <span class="font-mono text-[11px] text-slate-500">${sw.hex}</span>
+                    </button>
+                  `
+                  ).join('')}
+                </div>
+              </div>
+
+              <!-- Photo Uploader Eyedropper -->
+              <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50/80 p-3.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div class="text-xs font-bold text-slate-800">Unggah Foto Sampel Kain (Eyedropper Klik)</div>
+                    <p class="text-[11px] text-slate-500">Upload foto kain/benang lalu klik langsung pada titik warna gambar untuk mengambil HEX.</p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      <span>Pilih Foto</span>
+                      <input id="samplePhotoInput" type="file" accept="image/*" class="hidden" />
+                    </label>
+                    ${
+                      state.uploadedPhotoUrl
+                        ? `<button id="clearPhotoBtn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50">Hapus</button>`
+                        : ''
+                    }
+                  </div>
+                </div>
+
+                ${
+                  state.uploadedPhotoUrl
+                    ? `
+                  <div class="mt-3">
+                    <img
+                      id="samplePhotoPreview"
+                      src="${state.uploadedPhotoUrl}"
+                      alt="Sampel Foto Kain"
+                      class="max-h-44 w-auto rounded-lg border border-slate-300 cursor-crosshair shadow-sm"
+                    />
+                    <p class="text-[11px] text-brand-700 font-medium mt-1">
+                      Klik bagian kain pada foto di atas untuk menyedot kode HEX.
+                    </p>
+                  </div>
+                `
+                    : ''
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderFabricCatalog() {
+      const categories = ['ALL', ...new Set(state.rolls.map((r) => r.category))];
+      const dyeWarnings = getCartDyeLotConflicts();
+
+      const scoredRolls = state.rolls
+        .map((roll) => {
+          const match = calculateColorMatch(state.targetHex, roll.hex);
+          return { ...roll, match };
+        })
+        .filter((roll) => {
+          const q = state.searchQuery.trim().toLowerCase();
+          const matchesQuery =
+            !q ||
+            roll.name.toLowerCase().includes(q) ||
+            roll.colorName.toLowerCase().includes(q) ||
+            roll.dyeLot.toLowerCase().includes(q) ||
+            roll.shelf.toLowerCase().includes(q) ||
+            roll.hex.toLowerCase().includes(q);
+          const matchesCat = state.categoryFilter === 'ALL' || roll.category === state.categoryFilter;
+          const matchesSim = !state.similarityFilter || roll.match.similarity >= 78;
+          return matchesQuery && matchesCat && matchesSim;
+        })
+        .sort((a, b) => a.match.distance - b.match.distance);
+
+      return `
+        <section class="space-y-4">
+          ${
+            dyeWarnings.length > 0
+              ? `
+            <div class="rounded-2xl bg-amber-50 border border-amber-300 p-4 flex items-start gap-3 text-amber-950">
+              <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div class="text-xs sm:text-sm">
+                <span class="font-bold">Peringatan Kontinuitas Dye-Lot:</span>
+                Di keranjang terdapat campuran batch berbeda (${dyeWarnings[0].lots.join(', ')}) untuk jenis kain <strong>${dyeWarnings[0].fabric}</strong>. Penyambungan beda Dye-Lot berisiko menimbulkan perbedaan nuansa saat dijahit.
+              </div>
+            </div>
+          `
+              : ''
+          }
+
+          <!-- Filter & Search Bar -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2 flex-1">
+              <input
+                id="searchInput"
+                type="text"
+                value="${state.searchQuery}"
+                placeholder="Cari kain, Dye-Lot (LOT-2026-A01), atau lokasi rak (Rak A-01-B)..."
+                class="w-full sm:w-72 px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <select
+                id="categorySelect"
+                class="px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                ${categories
+                  .map(
+                    (c) => `<option value="${c}" ${state.categoryFilter === c ? 'selected' : ''}>${
+                      c === 'ALL' ? 'Semua Kategori' : c
+                    }</option>`
+                  )
+                  .join('')}
+              </select>
+            </div>
+
+            <button
+              id="similarityFilterBtn"
+              type="button"
+              class="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition ${
+                state.similarityFilter
+                  ? 'bg-brand-600 text-white border-brand-600'
+                  : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
+              }"
+            >
+              <span>Filter Kemiripan Tinggi (&ge;78%)</span>
+            </button>
+          </div>
+
+          <!-- Roll Cards Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            ${
+              scoredRolls.length === 0
+                ? `<div class="col-span-full bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 text-sm">
+                    Tidak ada gulungan kain yang sesuai dengan filter pencarian saat ini.
+                  </div>`
+                : scoredRolls
+                    .map((roll) => {
+                      const simBadgeStyle =
+                        roll.match.isExact
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : roll.match.similarity >= 80
+                          ? 'bg-brand-100 text-brand-800 border-brand-300'
+                          : 'bg-slate-100 text-slate-700 border-slate-200';
+
+                      const isOutOfStock = roll.stockMeters <= 0;
+
+                      return `
+                        <article class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between">
+                          <div>
+                            <!-- Color Header Swatch -->
+                            <div class="h-24 w-full swatch-pattern relative flex items-end justify-between p-3.5" style="background-color: ${roll.hex};">
+                              <span class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-white/90 text-slate-900 shadow-xs">
+                                ${roll.hex}
+                              </span>
+                              <span class="px-2.5 py-1 rounded-lg text-xs font-bold border shadow-xs ${simBadgeStyle}">
+                                ${roll.match.isExact ? '100% Exact Match' : `${roll.match.similarity}% Mirip (Δ ${roll.match.distance})`}
+                              </span>
+                            </div>
+
+                            <div class="p-4 space-y-3">
+                              <div class="flex items-start justify-between gap-2">
+                                <div>
+                                  <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">${roll.category} • ${roll.sku}</span>
+                                  <h3 class="font-bold text-slate-900 text-base leading-snug">${roll.name}</h3>
+                                  <p class="text-xs text-slate-600 mt-0.5">${roll.colorName}</p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                  <div class="text-sm font-extrabold text-brand-700">${formatRupiah(roll.pricePerMeter)}</div>
+                                  <div class="text-[11px] text-slate-500">/ meter</div>
+                                </div>
+                              </div>
+
+                              <!-- Dye-Lot & Smart Shelf Locator -->
+                              <div class="grid grid-cols-2 gap-2 bg-slate-50 rounded-xl p-2.5 border border-slate-200/80 text-xs">
+                                <div>
+                                  <div class="text-[10px] uppercase font-semibold text-slate-400">Dye Lot Batch</div>
+                                  <div class="font-mono font-bold text-slate-800 mt-0.5">${roll.dyeLot}</div>
+                                </div>
+                                <div>
+                                  <div class="text-[10px] uppercase font-semibold text-slate-400">Lokasi Rak (WMS)</div>
+                                  <div class="font-semibold text-brand-700 mt-0.5 flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <span>${roll.shelf}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <!-- Stock & Accessibility Note -->
+                              <div class="flex items-center justify-between text-xs">
+                                <span class="font-semibold ${isOutOfStock ? 'text-rose-600' : 'text-slate-700'}">
+                                  Stok Tersedia: <span class="font-mono font-bold">${roll.stockMeters.toFixed(2)} m</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  data-use-hex="${roll.hex}"
+                                  class="text-brand-600 hover:text-brand-800 font-semibold underline underline-offset-2"
+                                >
+                                  Jadikan Acuan HEX
+                                </button>
+                              </div>
+                              <p class="text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg">
+                                ${roll.accessibilityNote}
+                              </p>
+                            </div>
+                          </div>
+
+                          <!-- Quick Cut / Add to Cart -->
+                          <div class="px-4 pb-4 pt-1 flex items-center gap-2">
+                            <input
+                              id="meters-${roll.id}"
+                              type="number"
+                              step="0.5"
+                              min="0.5"
+                              max="${Math.max(0.5, roll.stockMeters)}"
+                              value="1.5"
+                              ${isOutOfStock ? 'disabled' : ''}
+                              class="w-20 px-2.5 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold text-center disabled:bg-slate-100"
+                              aria-label="Panjang meter untuk ${roll.name}"
+                            />
+                            <button
+                              type="button"
+                              data-add-roll="${roll.id}"
+                              ${isOutOfStock ? 'disabled' : ''}
+                              class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition ${
+                                isOutOfStock
+                                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                  : 'bg-brand-600 hover:bg-brand-700 text-white shadow-xs'
+                              }"
+                            >
+                              ${isOutOfStock ? 'Stok Rol Habis (Cek Scrap)' : '+ Potong & Masukkan POS'}
+                            </button>
+                          </div>
+                        </article>
+                      `;
+                    })
+                    .join('')
+            }
+          </div>
+        </section>
+      `;
+    }
+
+    function renderZeroWasteScrapCatalog() {
+      return `
+        <section class="space-y-5">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-accent-600">Modul 3 • Ekonomi Sirkular & Zero-Waste</span>
+              <h2 class="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
+                Katalog Sisa Potongan Kain (Scrap & Upcycling &lt; 1.5m)
+              </h2>
+              <p class="text-sm text-slate-600 mt-1">
+                Potongan kain sisa pemotongan rol (<span class="font-mono font-semibold">&lt; 1.5 meter</span>) dicatat otomatis oleh WMS agar tidak menjadi limbah tekstil, dijual dengan harga hemat untuk pengrajin, totebag, patch, maupun aksesoris.
+              </p>
+            </div>
+            <div class="px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium shrink-0">
+              Total Potongan Tersedia: <strong class="text-sm">${state.scraps.length} Item</strong>
+            </div>
+          </div>
+
+          ${
+            state.scraps.length === 0
+              ? `
+              <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2">
+                <p class="text-slate-600 font-medium">Belum ada potongan sisa kain di katalog saat ini.</p>
+                <p class="text-xs text-slate-500">Gunakan Meja Potong & POS untuk memotong rol hingga menyisakan &lt; 1.5m agar otomatis tercatat di sini.</p>
+              </div>
+            `
+              : `
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                ${state.scraps
+                  .map(
+                    (scrap) => `
+                  <article class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
+                    <div>
+                      <div class="h-20 w-full swatch-pattern flex items-center justify-between px-4" style="background-color: ${scrap.hex};">
+                        <span class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-white/90 text-slate-900">
+                          ${scrap.hex}
+                        </span>
+                        <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-400 text-slate-950">
+                          Panjang ${scrap.lengthMeters.toFixed(2)} m
+                        </span>
+                      </div>
+                      <div class="p-4 space-y-2.5">
+                        <div class="flex items-start justify-between gap-2">
+                          <div>
+                            <span class="text-[11px] font-mono text-slate-400">${scrap.id} • ${scrap.dyeLot}</span>
+                            <h3 class="font-bold text-slate-900 text-base">${scrap.name}</h3>
+                          </div>
+                          <div class="text-right">
+                            <div class="text-base font-extrabold text-accent-600">${formatRupiah(scrap.priceTotal)}</div>
+                            <div class="text-[11px] text-slate-500">Harga Paket Hemat</div>
+                          </div>
+                        </div>
+                        <p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
+                          <strong>Ide Upcycling:</strong> ${scrap.craftIdea}
+                        </p>
+                        <div class="text-xs text-slate-500 flex items-center justify-between">
+                          <span>Lokasi: <strong class="text-slate-700">${scrap.shelf}</strong></span>
+                          <span>Warna: <strong class="text-slate-700">${scrap.colorName}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="px-4 pb-4">
+                      <button
+                        type="button"
+                        data-add-scrap="${scrap.id}"
+                        class="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition"
+                      >
+                        + Ambil Potongan Upcycling ke POS
+                      </button>
+                    </div>
+                  </article>
+                `
+                  )
+                  .join('')}
+              </div>
+            `
+          }
+        </section>
+      `;
+    }
+
+    function renderWorkstationDrawer() {
+      if (!state.workstationOpen) return '';
+
+      const selectedRoll = state.rolls.find((r) => r.id === state.selectedRollForCut) || state.rolls[0];
+      const previewMeters = Math.max(0, parseFloat(state.cutMetersInput) || 0);
+      const previewRemaining = Math.max(0, Number((selectedRoll.stockMeters - previewMeters).toFixed(2)));
+      const willGenerateScrap =
+        previewMeters > 0 &&
+        previewMeters <= selectedRoll.stockMeters &&
+        previewRemaining > 0 &&
+        previewRemaining < state.autoScrapThreshold;
+
+      const cartTotal = state.cart.reduce((sum, i) => sum + i.subtotal, 0);
+      const dyeWarnings = getCartDyeLotConflicts();
+
+      return `
+        <div class="fixed inset-0 z-40 flex justify-end bg-slate-950/40 backdrop-blur-[2px]">
+          <aside class="w-full max-w-lg bg-white h-full shadow-2xl border-l border-slate-200 flex flex-col justify-between overflow-hidden">
+            <!-- Drawer Header -->
+            <div class="px-5 py-4 border-b border-slate-200 bg-brand-900 text-white flex items-center justify-between">
+              <div>
+                <div class="text-[11px] uppercase tracking-wider text-brand-100 font-semibold">
+                  Hardware-Integrated Workstation
+                </div>
+                <h2 class="text-base sm:text-lg font-bold">Simulator Meja Potong & Kasir (POS)</h2>
+              </div>
+              <button
+                type="button"
+                data-toggle-workstation
+                aria-label="Tutup Workstation"
+                class="p-2 rounded-xl hover:bg-white/10 transition"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Drawer Body -->
+            <div class="p-5 overflow-y-auto space-y-5 flex-1">
+              <!-- Quick Cutting Calculator -->
+              <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold uppercase tracking-wider text-brand-700">Kalkulator Potong Kain</span>
+                  <span class="text-[11px] text-slate-500">Stasiun Terpadu (1 Layar POS)</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div class="sm:col-span-2">
+                    <label for="wsRollSelect" class="block text-[11px] font-semibold text-slate-600 mb-1">Pilih Rol Kain & Dye-Lot</label>
+                    <select id="wsRollSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-medium">
+                      ${state.rolls
+                        .map(
+                          (r) => `
+                        <option value="${r.id}" ${r.id === selectedRoll.id ? 'selected' : ''}>
+                          ${r.name} • ${r.dyeLot} (${r.stockMeters.toFixed(1)}m)
+                        </option>
+                      `
+                        )
+                        .join('')}
+                    </select>
+                  </div>
+                  <div>
+                    <label for="wsMetersInput" class="block text-[11px] font-semibold text-slate-600 mb-1">Panjang (m)</label>
+                    <input
+                      id="wsMetersInput"
+                      type="number"
+                      step="0.25"
+                      min="0.25"
+                      value="${state.cutMetersInput}"
+                      class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-2 text-xs bg-white p-2.5 rounded-xl border border-slate-200/80">
+                  <div>
+                    <span class="text-slate-500">Estimasi Sisa Rol:</span>
+                    <strong class="font-mono text-slate-900 ml-1">${previewRemaining.toFixed(2)} m</strong>
+                  </div>
+                  <div>
+                    <span class="text-slate-500">Estimasi Biaya:</span>
+                    <strong class="text-brand-700 ml-1">${formatRupiah(previewMeters * selectedRoll.pricePerMeter)}</strong>
+                  </div>
+                </div>
+
+                ${
+                  willGenerateScrap
+                    ? `
+                  <div class="text-[11px] bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2 rounded-xl">
+                    Sisa rol (${previewRemaining.toFixed(2)}m) di bawah ambang batas <span class="font-mono font-bold">${state.autoScrapThreshold}m</span>: saat checkout akan otomatis masuk ke <strong>Katalog Zero-Waste Scrap</strong>.
+                  </div>
+                `
+                    : ''
+                }
+
+                <div class="flex items-center justify-between gap-2 pt-1">
+                  <label class="flex items-center gap-1.5 text-[11px] text-slate-600">
+                    <span>Ambang Scrap:</span>
+                    <select id="wsThresholdSelect" class="px-2 py-1 rounded-lg border border-slate-300 bg-white font-mono text-xs">
+                      <option value="1.0" ${state.autoScrapThreshold === 1.0 ? 'selected' : ''}>1.0m</option>
+                      <option value="1.5" ${state.autoScrapThreshold === 1.5 ? 'selected' : ''}>1.5m</option>
+                      <option value="2.0" ${state.autoScrapThreshold === 2.0 ? 'selected' : ''}>2.0m</option>
+                    </select>
+                  </label>
+
+                  <button
+                    id="wsAddCutBtn"
+                    type="button"
+                    class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition"
+                  >
+                    + Tambah Potongan
+                  </button>
+                </div>
+              </div>
+
+              <!-- Dye-Lot Conflict Alert inside Drawer -->
+              ${
+                dyeWarnings.length > 0
+                  ? `
+                <div class="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-900">
+                  <strong>Perhatian Dye-Lot:</strong> Terdeteksi lebih dari satu batch (${dyeWarnings[0].lots.join(', ')}) untuk kain <strong>${dyeWarnings[0].fabric}</strong> dalam pesanan ini.
+                </div>
+              `
+                  : ''
+              }
+
+              <!-- Active Cart / Order List -->
+              <div class="space-y-2.5">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Daftar Potongan & Item Transaksi (${state.cart.length})
+                </h3>
+
+                ${
+                  state.cart.length === 0
+                    ? `<div class="rounded-xl border border-dashed border-slate-300 p-6 text-center text-xs text-slate-500">
+                        Belum ada item di meja potong. Pilih kain dari katalog atau gunakan kalkulator potong di atas.
+                      </div>`
+                    : state.cart
+                        .map(
+                          (item, idx) => `
+                      <div class="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 bg-white">
+                        <div class="flex items-center gap-3 min-w-0">
+                          <span class="w-8 h-8 rounded-lg shrink-0 border border-black/15" style="background-color: ${item.hex};"></span>
+                          <div class="min-w-0">
+                            <div class="text-xs font-bold text-slate-900 truncate">${item.name}</div>
+                            <div class="text-[11px] font-mono text-slate-500">
+                              ${item.meters}m • ${item.dyeLot} • ${item.shelf}
+                            </div>
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-2.5 shrink-0">
+                          <span class="text-xs font-extrabold text-slate-800">${formatRupiah(item.subtotal)}</span>
+                          <button
+                            type="button"
+                            data-remove-cart="${idx}"
+                            class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                            aria-label="Hapus item"
+                          >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    `
+                        )
+                        .join('')
+                }
+              </div>
+
+              <!-- Recent Transactions Log -->
+              ${
+                state.transactions.length > 0
+                  ? `
+                <div class="space-y-2 pt-2 border-t border-slate-200">
+                  <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Riwayat Transaksi POS Sesi Ini</h3>
+                  <div class="space-y-1.5">
+                    ${state.transactions
+                      .map(
+                        (trx) => `
+                      <div class="flex items-center justify-between text-xs bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/70">
+                        <div>
+                          <span class="font-mono font-bold text-slate-800">${trx.id}</span>
+                          <span class="text-slate-500 ml-1.5">(${trx.time} • ${trx.itemsCount} item)</span>
+                        </div>
+                        <span class="font-bold text-emerald-700">${formatRupiah(trx.total)}</span>
+                      </div>
+                    `
+                      )
+                      .join('')}
+                  </div>
+                </div>
+              `
+                  : ''
+              }
+            </div>
+
+            <!-- Drawer Footer Checkout -->
+            <div class="p-4 border-t border-slate-200 bg-slate-50 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-700">Total Tagihan POS</span>
+                <span class="text-xl font-extrabold text-brand-700">${formatRupiah(cartTotal)}</span>
+              </div>
+              <button
+                id="checkoutBtn"
+                type="button"
+                class="w-full py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow-sm transition"
+              >
+                Selesaikan Potong & Pembayaran (Update WMS)
+              </button>
+            </div>
+          </aside>
+        </div>
+      `;
+    }
+
+    function renderToast() {
+      if (!state.toastMessage) return '';
+      const colorMap = {
+        success: 'bg-emerald-900 text-white border-emerald-700',
+        warn: 'bg-amber-900 text-white border-amber-700',
+        info: 'bg-slate-900 text-white border-slate-700'
+      };
+      return `
+        <div class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 z-50 max-w-md ml-auto">
+          <div class="rounded-2xl border px-4 py-3 shadow-xl text-xs sm:text-sm font-medium ${colorMap[state.toastType] || colorMap.info}">
+            ${state.toastMessage}
+          </div>
+        </div>
+      `;
+    }
+
+    function render() {
+      const root = document.getElementById('app');
+      if (!root) return;
+
+      root.innerHTML = `
+        ${renderHeader()}
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          ${state.activeTab === 'catalog' ? renderHexMatcherPanel() : ''}
+          ${state.activeTab === 'catalog' ? renderFabricCatalog() : renderZeroWasteScrapCatalog()}
+        </main>
+        <footer class="bg-white border-t border-slate-200 py-5 mt-8">
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <div>
+              <strong class="text-slate-700">TextileSpace Prototype</strong> — Ritel Tekstil Terintegrasi HEX Color Matching, Dye-Lot Indexing & Zero-Waste WMS.
+            </div>
+            <div>Dibuat untuk simulasi operasional toko kain modern & inklusif.</div>
+          </div>
+        </footer>
+        ${renderWorkstationDrawer()}
+        ${renderToast()}
+      `;
+
+      attachEvents();
+    }
+
+    // Initialize application
+    render();
+  </script>
+</body>
+</html>
